@@ -1,0 +1,15 @@
+# Runtime and Budget Log: Baseline V0
+**Date:** 2026-04-21
+
+## 1. Measured Runtime
+* **Total Time:** python research.py 1.15s user 1.93s system 305% cpu 1.006 total, generated scores for 63 firms.
+* **Average Time per Lead:** ~0.016 seconds.
+
+## 2. Estimated API Cost
+* **Data Source:** Apollo.io (Firmographics).
+* **Cost per Credit:** $0.02.
+* **Total Leads Processed:** 63.
+* **Total Estimated Cost:** $1.26.
+
+## 3. Scalability Projection
+* To process 1,000 leads, the estimated runtime is ~16 seconds at a cost of $20.00.

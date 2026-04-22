@@ -1,0 +1,11 @@
+# Secrets and Environment
+.env
+__pycache__/
+*.pyc
+
+# Data (Ignore large raw files, keep small training sets)
+data/raw_apollo/
+results.tsv
+
+# System files
+.DS_Store
