@@ -1,52 +1,264 @@
-import csv
-from pathlib import Path
+"""
+Worker (research.py) — HistGradientBoostingRegressor with engineered features
+plus a "Management Depth" feature scraped from each firm's website.
 
-# Paths
+Validation: 5-fold OOF predictions via cross_val_predict.
+Output: predictions are clipped to [1.0, 10.0] and snapped to a 0.5 grid to
+match the discretization of the Manual Score labels.
+
+Why HGBR: exp_004 confirmed (via a correctly-signed +0.28 coefficient on a
+tenure × management-absence interaction) that the search-fund "succession
+gap" signal is conditional, not additive. A tree-based ensemble can find
+threshold-style interactions like "tenure > 25 AND mgmt_depth ≤ 1" that a
+Ridge model could only approximate with a multiplicative term.
+"""
+from __future__ import annotations
+
+import json
+import re
+from pathlib import Path
+from urllib.parse import urljoin, urlparse
+
+import numpy as np
+import pandas as pd
+import requests
+from sklearn.ensemble import HistGradientBoostingRegressor
+from sklearn.inspection import permutation_importance
+from sklearn.model_selection import KFold, cross_val_predict
+from sklearn.pipeline import Pipeline
+
 INPUT_CSV = Path("data/train_set.csv")
 OUTPUT_TSV = Path("results.tsv")
+SCRAPE_CACHE = Path("logs/scrape_cache.json")
+CURRENT_YEAR = 2026
 
-def calculate_baseline_score(row):
-    # This matches the heuristic in prepare.py for a 0-error baseline
-    score = 5.0
+MIDWEST = {
+    "illinois", "indiana", "iowa", "kansas", "michigan", "minnesota",
+    "missouri", "nebraska", "north dakota", "ohio", "south dakota", "wisconsin",
+}
+
+RECURRING_KW = [
+    "managed services", "managed it", "recurring", "mrr", "help desk",
+    "monitoring", "backup", "compliance", "business continuity",
+]
+STAGNATION_KW = [
+    "legacy", "outdated", "onsite support", "voip", "hardware", "stagnation",
+    "under-optimized",
+]
+MODERN_AI_KW = [
+    "ai-integrated", "ai-forward", "advanced ai", "machine learning",
+    "cutting-edge ai",
+]
+
+# Distinct role-title categories. We count how many of these patterns appear
+# at least once across the scraped pages (not raw occurrences) — so a page
+# spamming "CEO CEO CEO" still contributes 1 unit, not 3.
+MGMT_PATTERNS = [
+    r"\bceo\b", r"\bcto\b", r"\bcfo\b", r"\bcoo\b", r"\bcio\b",
+    r"\bvice president\b", r"\bvp\b", r"\bpresident\b",
+    r"\bdirector of\b", r"\bchief\s+\w+\s+officer\b",
+    r"leadership team", r"executive team", r"management team",
+    r"meet the team", r"our team", r"our leadership",
+]
+
+TEAM_PATHS = ["about", "about-us", "team", "our-team", "leadership", "management", "company"]
+
+USER_AGENT = "Mozilla/5.0 (compatible; capstone-research/1.0)"
+FETCH_TIMEOUT = 4  # seconds per HTTP request
+
+
+def safe_float(x, default=0.0):
+    if x is None:
+        return default
+    s = str(x).strip().replace(",", "")
+    if not s:
+        return default
     try:
-        employees = int(row.get("# Employees", 0))
-        founded = int(row.get("Founded Year", 0))
-        revenue = float(row.get("Annual Revenue", 0))
-        desc = row.get("Short Description", "").lower()
-    except: return 5.0
+        return float(s)
+    except ValueError:
+        return default
 
-    if 10 <= employees <= 30: score += 1.5
-    if (2026 - founded) >= 25: score += 1.5
-    if revenue >= 5000000: score += 1.5
-    if "managed" in desc or "recurring" in desc: score += 0.5
-    
-    return max(1.0, min(10.0, round(score, 2)))
+
+def count_kw(text: str, kw_list) -> int:
+    t = (text or "").lower()
+    return sum(1 for k in kw_list if k in t)
+
+
+def normalize_url(raw: str) -> str | None:
+    if not raw:
+        return None
+    u = raw.strip()
+    if not u:
+        return None
+    if not u.startswith(("http://", "https://")):
+        u = "http://" + u
+    return u
+
+
+def strip_html(html: str) -> str:
+    text = re.sub(r"<script[^>]*>.*?</script>", " ", html, flags=re.S | re.I)
+    text = re.sub(r"<style[^>]*>.*?</style>", " ", text, flags=re.S | re.I)
+    text = re.sub(r"<[^>]+>", " ", text)
+    return text.lower()
+
+
+def fetch(url: str) -> str:
+    try:
+        r = requests.get(
+            url,
+            timeout=FETCH_TIMEOUT,
+            headers={"User-Agent": USER_AGENT},
+            allow_redirects=True,
+        )
+        if r.status_code == 200 and r.text:
+            return r.text
+    except requests.RequestException:
+        return ""
+    return ""
+
+
+def scrape_management_depth(url: str | None, cache: dict) -> dict:
+    """Returns {'depth': int, 'pages_fetched': int, 'error': str|None}."""
+    if not url:
+        return {"depth": 0, "pages_fetched": 0, "error": "no_url"}
+    if url in cache:
+        return cache[url]
+
+    home_html = fetch(url)
+    if not home_html:
+        result = {"depth": 0, "pages_fetched": 0, "error": "homepage_fetch_failed"}
+        cache[url] = result
+        return result
+
+    pages_text = strip_html(home_html)
+    pages_fetched = 1
+
+    parsed = urlparse(url)
+    base = f"{parsed.scheme}://{parsed.netloc}"
+    for path in TEAM_PATHS:
+        candidate = urljoin(base + "/", path)
+        page_html = fetch(candidate)
+        if page_html:
+            pages_text += " " + strip_html(page_html)
+            pages_fetched += 1
+            break  # one team-style page is enough
+
+    depth = sum(1 for pat in MGMT_PATTERNS if re.search(pat, pages_text))
+    result = {"depth": depth, "pages_fetched": pages_fetched, "error": None}
+    cache[url] = result
+    return result
+
+
+def load_cache() -> dict:
+    if SCRAPE_CACHE.exists():
+        try:
+            return json.loads(SCRAPE_CACHE.read_text())
+        except json.JSONDecodeError:
+            return {}
+    return {}
+
+
+def save_cache(cache: dict) -> None:
+    SCRAPE_CACHE.parent.mkdir(parents=True, exist_ok=True)
+    SCRAPE_CACHE.write_text(json.dumps(cache, indent=2))
+
+
+def featurize(df: pd.DataFrame, mgmt_depth: pd.Series) -> pd.DataFrame:
+    employees = df["# Employees"].apply(safe_float)
+    revenue = df["Annual Revenue"].apply(safe_float)
+    founded = df["Founded Year"].apply(safe_float)
+    tenure = (CURRENT_YEAR - founded).clip(lower=0)
+
+    state = df["Company State"].fillna("").str.strip().str.lower()
+    in_midwest = state.isin(MIDWEST).astype(int)
+
+    text = (
+        df.get("Rationale", pd.Series([""] * len(df))).fillna("").astype(str) + " "
+        + df.get("Keywords", pd.Series([""] * len(df))).fillna("").astype(str) + " "
+        + df.get("Technologies", pd.Series([""] * len(df))).fillna("").astype(str) + " "
+        + df.get("Short Description", pd.Series([""] * len(df))).fillna("").astype(str)
+    )
+    recurring = text.apply(lambda t: count_kw(t, RECURRING_KW))
+    stagnation = text.apply(lambda t: count_kw(t, STAGNATION_KW))
+    modern_ai = text.apply(lambda t: count_kw(t, MODERN_AI_KW))
+
+    sweet_spot_emp = ((employees >= 10) & (employees <= 30)).astype(int)
+
+    return pd.DataFrame({
+        "log_employees": np.log1p(employees),
+        "log_revenue": np.log1p(revenue),
+        "tenure": tenure,
+        "tenure_sq": tenure ** 2,
+        "sweet_spot_emp": sweet_spot_emp,
+        "in_midwest": in_midwest,
+        "recurring_kw": recurring,
+        "stagnation_kw": stagnation,
+        "modern_ai_kw": modern_ai,
+        "mgmt_depth": mgmt_depth.values,
+    })
+
+
+def build_model() -> Pipeline:
+    # Tree-based, regularized for N=62: shallow trees, slow learning rate,
+    # min_samples_leaf=5 to prevent leaves of 1–2 samples in the small CV folds.
+    # No scaler needed — HGBR is invariant to monotone feature transforms.
+    return Pipeline([
+        ("hgbr", HistGradientBoostingRegressor(
+            learning_rate=0.05,
+            max_iter=300,
+            max_leaf_nodes=8,
+            min_samples_leaf=5,
+            l2_regularization=1.0,
+            random_state=42,
+        )),
+    ])
+
 
 def main():
-    if not INPUT_CSV.exists(): return
-    results = []
-    with open(INPUT_CSV, "r", encoding="utf-8-sig") as f:
-        reader = csv.DictReader(f)
-        for row in reader:
-            score = calculate_baseline_score(row)
-            results.append(f"{score}\t{row['Company Name']}")
-    
+    if not INPUT_CSV.exists():
+        return
+    df = pd.read_csv(INPUT_CSV, encoding="utf-8-sig")
+
+    cache = load_cache()
+    depths = []
+    failures = 0
+    for _, row in df.iterrows():
+        url = normalize_url(row.get("Website", ""))
+        result = scrape_management_depth(url, cache)
+        depths.append(result["depth"])
+        if result["error"]:
+            failures += 1
+    save_cache(cache)
+    print(f"Scrape complete: {len(df) - failures}/{len(df)} firms reachable, {failures} failures.")
+
+    X = featurize(df, pd.Series(depths)).values
+    y = df["Manual Score"].astype(float).values
+
+    cv = KFold(n_splits=5, shuffle=True, random_state=42)
+    preds = cross_val_predict(build_model(), X, y, cv=cv)
+    preds = np.clip(preds, 1.0, 10.0)
+    # Manual labels are quantized to 0.5 increments; snap predictions to the
+    # same grid so the loss the Judge computes is on comparable units.
+    preds = np.round(preds * 2) / 2
+
+    # Diagnostic: permutation importance from a model fit on all data
+    # (just for logging — predictions above are OOF and label-honest).
+    # HGBR has no built-in feature_importances_, so we permute each feature
+    # and measure the mean drop in R² across 10 shuffles.
+    full_model = build_model().fit(X, y)
+    perm = permutation_importance(full_model, X, y, n_repeats=10, random_state=42, scoring="r2")
+    feature_names = list(featurize(df, pd.Series(depths)).columns)
+    importance_pairs = sorted(zip(feature_names, perm.importances_mean), key=lambda x: -x[1])
+    print("HGBR permutation importance (mean drop in R² when shuffled):")
+    for name, imp in importance_pairs:
+        print(f"  {name:>16s}: {imp:+.4f}")
+
     with open(OUTPUT_TSV, "w") as f:
-        f.write("\n".join(results))
-    print(f"Baseline complete. Generated scores for {len(results)} firms.")
+        f.write("Predicted Score\tCompany Name\n")
+        for score, name in zip(preds, df["Company Name"].values):
+            f.write(f"{score:.1f}\t{name}\n")
+    print(f"HGBR OOF complete. Generated scores for {len(df)} firms.")
+
 
 if __name__ == "__main__":
     main()
-
-
-# Check to ensure all firms in the training set have a corresponding score in the results file, and print any missing firms for debugging purposes.
-import pandas as pd
-
-train_df = pd.read_csv('data/train_set.csv')
-results_df = pd.read_csv('results.tsv', sep='\t', names=['Score', 'Company Name'])
-
-train_names = set(train_df['Company Name'].unique())
-result_names = set(results_df['Company Name'].unique())
-
-missing = train_names - result_names
-print(f"Missing Firms: {missing}")

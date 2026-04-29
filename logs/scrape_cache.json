@@ -1,0 +1,312 @@
+{
+  "http://www.kpmtechnology.com": {
+    "depth": 1,
+    "pages_fetched": 2,
+    "error": null
+  },
+  "http://www.nemsys.com": {
+    "depth": 1,
+    "pages_fetched": 2,
+    "error": null
+  },
+  "http://www.realitsolutions.com": {
+    "depth": 5,
+    "pages_fetched": 2,
+    "error": null
+  },
+  "http://www.starfishcomputer.com": {
+    "depth": 4,
+    "pages_fetched": 2,
+    "error": null
+  },
+  "http://www.lascoinc.com": {
+    "depth": 6,
+    "pages_fetched": 1,
+    "error": null
+  },
+  "http://www.3sgplus.com": {
+    "depth": 4,
+    "pages_fetched": 2,
+    "error": null
+  },
+  "http://www.sundogit.com": {
+    "depth": 0,
+    "pages_fetched": 2,
+    "error": null
+  },
+  "http://www.abd.net": {
+    "depth": 4,
+    "pages_fetched": 1,
+    "error": null
+  },
+  "http://www.atb-tech.com": {
+    "depth": 4,
+    "pages_fetched": 2,
+    "error": null
+  },
+  "http://www.innovativecomputers.net": {
+    "depth": 0,
+    "pages_fetched": 1,
+    "error": null
+  },
+  "http://www.ocs.help": {
+    "depth": 0,
+    "pages_fetched": 1,
+    "error": null
+  },
+  "http://www.diversetechservices.com": {
+    "depth": 2,
+    "pages_fetched": 2,
+    "error": null
+  },
+  "http://www.vcsolutions.com": {
+    "depth": 0,
+    "pages_fetched": 2,
+    "error": null
+  },
+  "http://www.grittechs.com": {
+    "depth": 6,
+    "pages_fetched": 2,
+    "error": null
+  },
+  "http://www.xfer.com": {
+    "depth": 1,
+    "pages_fetched": 2,
+    "error": null
+  },
+  "http://www.aqueity.com": {
+    "depth": 3,
+    "pages_fetched": 2,
+    "error": null
+  },
+  "http://www.computerstlouis.com": {
+    "depth": 5,
+    "pages_fetched": 2,
+    "error": null
+  },
+  "http://www.uptimelegal.com": {
+    "depth": 3,
+    "pages_fetched": 2,
+    "error": null
+  },
+  "http://www.axiatp.com": {
+    "depth": 2,
+    "pages_fetched": 2,
+    "error": null
+  },
+  "http://www.arnettechnologies.com": {
+    "depth": 6,
+    "pages_fetched": 2,
+    "error": null
+  },
+  "http://www.ciolanding.com": {
+    "depth": 9,
+    "pages_fetched": 2,
+    "error": null
+  },
+  "http://www.dyminsystems.com": {
+    "depth": 1,
+    "pages_fetched": 1,
+    "error": null
+  },
+  "http://www.theotg.com": {
+    "depth": 7,
+    "pages_fetched": 2,
+    "error": null
+  },
+  "http://www.vectortechgroup.com": {
+    "depth": 2,
+    "pages_fetched": 2,
+    "error": null
+  },
+  "http://www.pearlsolves.com": {
+    "depth": 4,
+    "pages_fetched": 2,
+    "error": null
+  },
+  "http://www.stammtech.com": {
+    "depth": 2,
+    "pages_fetched": 2,
+    "error": null
+  },
+  "http://www.cybertronit.com": {
+    "depth": 0,
+    "pages_fetched": 2,
+    "error": null
+  },
+  "http://www.teamturnkey.com": {
+    "depth": 3,
+    "pages_fetched": 2,
+    "error": null
+  },
+  "http://www.atnetplus.com": {
+    "depth": 2,
+    "pages_fetched": 2,
+    "error": null
+  },
+  "http://www.throttlenet.com": {
+    "depth": 2,
+    "pages_fetched": 2,
+    "error": null
+  },
+  "http://www.smartts.com": {
+    "depth": 0,
+    "pages_fetched": 1,
+    "error": null
+  },
+  "http://www.miken.net": {
+    "depth": 1,
+    "pages_fetched": 2,
+    "error": null
+  },
+  "http://www.webitservices.com": {
+    "depth": 7,
+    "pages_fetched": 2,
+    "error": null
+  },
+  "http://www.edotsolutions.com": {
+    "depth": 1,
+    "pages_fetched": 2,
+    "error": null
+  },
+  "http://www.gmobility.com": {
+    "depth": 1,
+    "pages_fetched": 2,
+    "error": null
+  },
+  "http://www.rpmit.com": {
+    "depth": 4,
+    "pages_fetched": 2,
+    "error": null
+  },
+  "http://www.power-it.net": {
+    "depth": 0,
+    "pages_fetched": 0,
+    "error": "homepage_fetch_failed"
+  },
+  "http://www.htmlglobal.com": {
+    "depth": 6,
+    "pages_fetched": 2,
+    "error": null
+  },
+  "http://www.bigwatertech.com": {
+    "depth": 3,
+    "pages_fetched": 2,
+    "error": null
+  },
+  "http://www.aresgrp.com": {
+    "depth": 7,
+    "pages_fetched": 2,
+    "error": null
+  },
+  "http://www.bluenetinc.com": {
+    "depth": 4,
+    "pages_fetched": 2,
+    "error": null
+  },
+  "http://www.aheliotech.com": {
+    "depth": 0,
+    "pages_fetched": 1,
+    "error": null
+  },
+  "http://www.worldsynergy.com": {
+    "depth": 2,
+    "pages_fetched": 2,
+    "error": null
+  },
+  "http://www.blazent.com": {
+    "depth": 2,
+    "pages_fetched": 2,
+    "error": null
+  },
+  "http://www.ascentient.com": {
+    "depth": 1,
+    "pages_fetched": 2,
+    "error": null
+  },
+  "http://www.winningtech.com": {
+    "depth": 3,
+    "pages_fetched": 2,
+    "error": null
+  },
+  "http://www.goleadingit.com": {
+    "depth": 6,
+    "pages_fetched": 2,
+    "error": null
+  },
+  "http://www.dwdtechgroup.com": {
+    "depth": 0,
+    "pages_fetched": 1,
+    "error": null
+  },
+  "http://www.teamadna.com": {
+    "depth": 3,
+    "pages_fetched": 2,
+    "error": null
+  },
+  "http://www.dekind.com": {
+    "depth": 6,
+    "pages_fetched": 2,
+    "error": null
+  },
+  "http://www.startech-comp.com": {
+    "depth": 1,
+    "pages_fetched": 2,
+    "error": null
+  },
+  "http://www.pinncomp.com": {
+    "depth": 1,
+    "pages_fetched": 2,
+    "error": null
+  },
+  "http://www.4eos.com": {
+    "depth": 2,
+    "pages_fetched": 2,
+    "error": null
+  },
+  "http://www.oneclickwi.com": {
+    "depth": 3,
+    "pages_fetched": 2,
+    "error": null
+  },
+  "http://www.usbus.com": {
+    "depth": 4,
+    "pages_fetched": 2,
+    "error": null
+  },
+  "http://www.ontech.com": {
+    "depth": 4,
+    "pages_fetched": 2,
+    "error": null
+  },
+  "http://www.innovativeii.com": {
+    "depth": 2,
+    "pages_fetched": 1,
+    "error": null
+  },
+  "http://www.lazorpoint.com": {
+    "depth": 5,
+    "pages_fetched": 2,
+    "error": null
+  },
+  "http://www.bytesmanagedit.com": {
+    "depth": 1,
+    "pages_fetched": 2,
+    "error": null
+  },
+  "http://www.datayard.us": {
+    "depth": 5,
+    "pages_fetched": 2,
+    "error": null
+  },
+  "http://www.bravesoft.com": {
+    "depth": 1,
+    "pages_fetched": 2,
+    "error": null
+  },
+  "http://www.synllc.com": {
+    "depth": 2,
+    "pages_fetched": 2,
+    "error": null
+  }
+}
