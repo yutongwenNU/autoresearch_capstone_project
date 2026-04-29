@@ -1,16 +1,15 @@
 """
-Worker (research.py) — HistGradientBoostingRegressor with engineered features
+Worker (research.py) — Ridge regression with engineered features
 plus a "Management Depth" feature scraped from each firm's website.
 
-Validation: 5-fold OOF predictions via cross_val_predict.
-Output: predictions are clipped to [1.0, 10.0] and snapped to a 0.5 grid to
-match the discretization of the Manual Score labels.
+Validation strategy: 5-fold OOF predictions via cross_val_predict, so the
+RMSE the Judge computes is an honest validation error, not a training fit.
 
-Why HGBR: exp_004 confirmed (via a correctly-signed +0.28 coefficient on a
-tenure × management-absence interaction) that the search-fund "succession
-gap" signal is conditional, not additive. A tree-based ensemble can find
-threshold-style interactions like "tenure > 25 AND mgmt_depth ≤ 1" that a
-Ridge model could only approximate with a multiplicative term.
+Search-fund thesis (per the Stanford/Yale primers): a target with deep
+founder tenure but a thin/absent visible management team is high "Succession
+Gap" — i.e., a desirable acquisition. Ridge will learn the sign of the
+mgmt_depth coefficient empirically; we expect it to be negative (more
+visible management → lower Manual Score).
 """
 from __future__ import annotations
 
@@ -22,10 +21,10 @@ from urllib.parse import urljoin, urlparse
 import numpy as np
 import pandas as pd
 import requests
-from sklearn.ensemble import HistGradientBoostingRegressor
-from sklearn.inspection import permutation_importance
+from sklearn.linear_model import Ridge
 from sklearn.model_selection import KFold, cross_val_predict
 from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import StandardScaler
 
 INPUT_CSV = Path("data/train_set.csv")
 OUTPUT_TSV = Path("results.tsv")
@@ -199,18 +198,9 @@ def featurize(df: pd.DataFrame, mgmt_depth: pd.Series) -> pd.DataFrame:
 
 
 def build_model() -> Pipeline:
-    # Tree-based, regularized for N=62: shallow trees, slow learning rate,
-    # min_samples_leaf=5 to prevent leaves of 1–2 samples in the small CV folds.
-    # No scaler needed — HGBR is invariant to monotone feature transforms.
     return Pipeline([
-        ("hgbr", HistGradientBoostingRegressor(
-            learning_rate=0.05,
-            max_iter=300,
-            max_leaf_nodes=8,
-            min_samples_leaf=5,
-            l2_regularization=1.0,
-            random_state=42,
-        )),
+        ("scaler", StandardScaler()),
+        ("ridge", Ridge(alpha=1.0)),
     ])
 
 
@@ -237,27 +227,22 @@ def main():
     cv = KFold(n_splits=5, shuffle=True, random_state=42)
     preds = cross_val_predict(build_model(), X, y, cv=cv)
     preds = np.clip(preds, 1.0, 10.0)
-    # Manual labels are quantized to 0.5 increments; snap predictions to the
-    # same grid so the loss the Judge computes is on comparable units.
-    preds = np.round(preds * 2) / 2
 
-    # Diagnostic: permutation importance from a model fit on all data
-    # (just for logging — predictions above are OOF and label-honest).
-    # HGBR has no built-in feature_importances_, so we permute each feature
-    # and measure the mean drop in R² across 10 shuffles.
+    # Diagnostic: standardized Ridge coefficients from a model fit on all
+    # data (just for logging — predictions above are OOF and label-honest).
     full_model = build_model().fit(X, y)
-    perm = permutation_importance(full_model, X, y, n_repeats=10, random_state=42, scoring="r2")
+    coefs = full_model.named_steps["ridge"].coef_
     feature_names = list(featurize(df, pd.Series(depths)).columns)
-    importance_pairs = sorted(zip(feature_names, perm.importances_mean), key=lambda x: -x[1])
-    print("HGBR permutation importance (mean drop in R² when shuffled):")
-    for name, imp in importance_pairs:
-        print(f"  {name:>16s}: {imp:+.4f}")
+    coef_pairs = sorted(zip(feature_names, coefs), key=lambda x: -abs(x[1]))
+    print("Ridge coefficients (standardized):")
+    for name, c in coef_pairs:
+        print(f"  {name:>16s}: {c:+.4f}")
 
     with open(OUTPUT_TSV, "w") as f:
         f.write("Predicted Score\tCompany Name\n")
         for score, name in zip(preds, df["Company Name"].values):
-            f.write(f"{score:.1f}\t{name}\n")
-    print(f"HGBR OOF complete. Generated scores for {len(df)} firms.")
+            f.write(f"{round(float(score), 4)}\t{name}\n")
+    print(f"Ridge OOF complete. Generated scores for {len(df)} firms.")
 
 
 if __name__ == "__main__":

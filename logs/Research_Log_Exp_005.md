@@ -1,7 +1,7 @@
 # Experiment Log: Auto-Private-Equity Search Engine
 **Date:** 2026-04-28
 **Experiment ID:** exp_005
-**Status:** keep (logged) — but **regressed**; exp_003 remains the current best (RMSE 1.5016)
+**Status:** discard (regressed; reverted to exp_003 — current best at RMSE 1.5016)
 
 ## Experiment: HistGradientBoostingRegressor with 0.5-Grid Discretization
 
@@ -49,12 +49,12 @@ sweet_spot_emp: +0.0000  ← HGBR found the same threshold inside log_employees
 
 ### What This Means for the Research Direction
 * **Revert the model** — exp_003 (Ridge with engineered features and `mgmt_depth`) remains the best at RMSE 1.5016.
-* **Keep the rounding step** — it's a label-aligned post-process that's free to apply to any model, and on a well-calibrated Ridge it should round neutrally or slightly favorably. It only hurt exp_005 because the model was already badly off.
+* **Drop the rounding step too.** Initial intuition was that snapping continuous predictions to the 0.5 label grid would be a "free" label-aligned post-process. Empirical follow-up (running exp_003's pipeline + rounding) produced **RMSE 2.22** — a significant regression, not neutrality. The reason: random rounding to a 0.5 grid contributes an expected RMSE penalty of ~√(1/12) × 0.5 ≈ 0.14 from quantization noise alone, and that penalty is only "earned back" when the underlying model is accurate enough to land ≥30% of predictions in their correct bin. Ridge's L2-shrunk predictions cluster near the training mean for hard-to-fit firms, so most rounded predictions land in the wrong bin. The continuous-RMSE metric this project uses penalizes the rounding more than the discretization aligns with the labels.
 * **Tree models are not categorically wrong here, but N=62 is too small for HGBR with the current hyperparameters.** Future iterations could explore a much smaller HGBR (`max_iter=50`, `max_leaf_nodes=4`) or a `RandomForestRegressor` with high `min_samples_leaf`. But the more likely productive direction is sharper *features* (founder-tenure mentions, real "About Us" text mining) on top of the Ridge backbone, not different model classes.
 * **The "redundant engineered features" diagnostic should inform exp_006+.** If we stay with Ridge, `sweet_spot_emp` etc. earn their keep. If we move to a tree, we can drop them.
 
-### Decision: keep (logged), but exp_003 remains the active best
-Logged with `--keep` per the user's instruction so the experiment record is complete. `research.py` will be reverted to the exp_003 feature set + the 0.5-rounding step (since the rounding is a label-aligned post-process that's free to keep on any model) before any future runs.
+### Decision: discard — revert research.py to pure exp_003 (no rounding)
+Both bundled changes are reverted. **research.py is restored to the exp_003 configuration** (Ridge + scraper + 9 engineered features + `mgmt_depth`, continuous output, no 0.5 rounding) — RMSE 1.5016 confirmed by the Judge as the active best. The exp_005 row in `logs/results.tsv` was originally written with `--keep` at run time per instruction; the status field has since been corrected to `discard` to reflect the actual decision after diagnostic analysis.
 
 ### Audit
 * **Judge integrity:** SHA-256 `570d9e2a89c8...` verified prior to Worker execution.

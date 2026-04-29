@@ -198,7 +198,7 @@ val_rmse: 1.501594   val_r2: 0.4359   status: keep   (Δ −0.010, marginal)
 Encoded the conditional explicitly: `succession_gap = tenure × (max_depth − mgmt_depth)`. Hypothesis: "deep tenure × no management" should compound into a single positive signal that Ridge can fit with one coefficient.
 
 ```
-val_rmse: 1.510976   val_r2: 0.4288   status: keep (logged) → DISCARDED
+val_rmse: 1.510976   val_r2: 0.4288   status: discard
 ```
 
 **Diagnostic — the experiment that "succeeded by failing":** the new interaction coefficient was `+0.28` and *correctly signed* (vs the noisy +0.04 standalone) — confirming the thesis is conditional, not additive. But predictive power didn't move because Ridge was redistributing weight across collinear features (tenure, mgmt_depth, succession_gap) without adding new information. **Reverted to exp_003.**
@@ -208,10 +208,12 @@ val_rmse: 1.510976   val_r2: 0.4288   status: keep (logged) → DISCARDED
 Two changes bundled: (a) swap Ridge → HGBR to capture non-linear thresholds natively; (b) snap predictions to 0.5 grid via `round(x*2)/2` to align with the discretization of the Manual Score labels.
 
 ```
-val_rmse: 2.176429   val_r2: -0.1850   status: keep (logged) → REVERTED
+val_rmse: 2.176429   val_r2: -0.1850   status: discard
 ```
 
-**Diagnostic — informative regression:** HGBR drove R² *negative* — the model performs worse than predicting the mean. Permutation importance revealed the cause: HGBR zeroed out `sweet_spot_emp`, `tenure_sq`, `in_midwest`, and `modern_ai_kw` — features Ridge had relied on heavily. A tree finds those thresholds internally on the raw `log_employees` and `tenure`, so the engineered features are redundant; **but** N=62 is too small for boosted trees to generalize. Confirmed: at this dataset size, the simpler linear model wins on both quality and speed.
+**Diagnostic — informative regression:** HGBR drove R² *negative* — the model performs worse than predicting the mean. Permutation importance revealed the cause: HGBR zeroed out `sweet_spot_emp`, `tenure_sq`, `in_midwest`, and `modern_ai_kw` — features Ridge had relied on heavily. A tree finds those thresholds internally on the raw `log_employees` and `tenure`, so the engineered features are redundant; **but** N=62 is too small for boosted trees to generalize.
+
+A follow-up showed that the bundled 0.5-rounding step also doesn't generalize — applying it to the exp_003 Ridge pipeline pushes RMSE from 1.50 to 2.22. Random rounding to a 0.5 grid adds ~√(1/12) × 0.5 ≈ 0.14 of expected RMSE just from quantization noise, which is only "earned back" when the model is accurate enough to land ≥30% of predictions in their correct bin. **Both bundled changes reverted; research.py is restored to pure exp_003.**
 
 ### Summary
 
@@ -219,9 +221,9 @@ val_rmse: 2.176429   val_r2: -0.1850   status: keep (logged) → REVERTED
 |---|---|---|---|---|
 | 001 | Hand-coded heuristics | 1.8460 | 0.147 | baseline |
 | 002 | Ridge + 9 engineered features | 1.5112 | 0.429 | keep |
-| 003 | + `mgmt_depth` from web scraper | **1.5016** | **0.436** | keep ← **best** |
-| 004 | + tenure × mgmt-absence interaction | 1.5110 | 0.429 | logged, reverted |
-| 005 | HGBR + 0.5-grid rounding | 2.1764 | −0.185 | logged, reverted |
+| 003 | + `mgmt_depth` from web scraper | **1.5016** | **0.436** | keep ← **best (active)** |
+| 004 | + tenure × mgmt-absence interaction | 1.5110 | 0.429 | discard |
+| 005 | HGBR + 0.5-grid rounding | 2.1764 | −0.185 | discard |
 
 **Total improvement: RMSE 1.8460 → 1.5016 (−18.6%); R² 0.147 → 0.436 (~3× variance explained).**
 
@@ -251,14 +253,18 @@ To intentionally update the Judge: re-`chmod 644`, edit, re-`chmod 444`, recompu
 
 ## Reproducing the Best Result
 
-The best Worker is the exp_003 configuration (Ridge + 9 engineered features + scraped `mgmt_depth`). The current `research.py` may be in a different state if subsequent experiments have been run; check `git log research.py` to find the exp_003 commit.
+`research.py` is checked in at the exp_003 configuration — Ridge + 9 engineered features + scraped `mgmt_depth`, continuous output, no rounding. Running it should reproduce the best-known RMSE of **1.5016** directly:
 
 ```bash
-# View the experiment log to find the best run
+# View the rolling experiment log
 cat logs/results.tsv
 
-# Reproduce (assumes research.py is at the exp_003 state)
+# Run via the wrapper (recommended — verifies Judge integrity first)
 python run_experiment.py "Reproducing exp_003 best" --keep
+
+# Or run the Worker and Judge by hand:
+python research.py            # writes results.tsv
+python eval/prepare.py        # prints RMSE
 
 # Expected:
 # Evaluation Complete | RMSE: 1.5016 | Status: keep
