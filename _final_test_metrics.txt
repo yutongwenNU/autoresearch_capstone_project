@@ -1,0 +1,20 @@
+test_rmse	1.511858
+test_r2	0.424350
+n_test	28
+abs_err_min	0.0000
+abs_err_median	1.0000
+abs_err_max	3.5000
+within_1.0	16
+within_1.5	20
+within_2.0	25
+coef	log_revenue	+0.939902
+coef	sweet_spot_emp	+0.775926
+coef	tenure	+0.660689
+coef	rev_per_emp	-0.656335
+coef	stagnation_kw	+0.405000
+coef	modern_ai_kw	-0.389750
+coef	log_employees	-0.373782
+coef	recurring_kw	+0.332261
+coef	tenure_sq	-0.312697
+coef	mgmt_depth	+0.063675
+coef	in_midwest	+0.000000
